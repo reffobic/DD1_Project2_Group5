@@ -13,6 +13,12 @@ set_property IOSTANDARD LVCMOS33 [get_ports vsync]
 set_property PACKAGE_PIN G19 [get_ports r[0]]
 set_property IOSTANDARD LVCMOS33 [get_ports r[0]]
 
+set_property PACKAGE_PIN W19 [get_ports p1up]
+set_property IOSTANDARD LVCMOS33 [get_ports p1up]
+
+set_property PACKAGE_PIN U17 [get_ports p1down]
+set_property IOSTANDARD LVCMOS33 [get_ports p1down]
+
 set_property PACKAGE_PIN H19 [get_ports r[1]]
 set_property IOSTANDARD LVCMOS33 [get_ports r[1]]
 

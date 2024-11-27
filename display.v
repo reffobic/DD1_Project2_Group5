@@ -20,7 +20,10 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module display (input clk, reset, output reg [3:0] r, g, b, output hsync, vsync);
+module display (input clk, reset, p1up, p1down, output reg [3:0] r, g, b, output hsync, vsync);
+
+parameter paddleHeight = 96;
+parameter paddleWidth = 15;
 
 wire clk_out;
 
@@ -39,6 +42,9 @@ wire [9:0] vpos;
 // Instantiate the VGA synchronization module
 vgaSync vgaDriver (.clk(clk_out), .reset(reset), .hsync(hsync), .vsync(vsync), .display_on(display_on), .hpos(hpos), .vpos(vpos));
 
+wire p1coordinate;
+paddleCtrl paddle (.clk(clk_out), .reset(reset), .pushup(p1up), .pushdown(p1down), .vpos(480), .coord(p1coordinate));
+
 // Generate the square and background color
 always @(posedge clk_out or posedge reset) begin
     if (reset) begin
@@ -48,15 +54,15 @@ always @(posedge clk_out or posedge reset) begin
         b <= 4'b0000;
     end else if (display_on) begin
         // Draw a square in the specified region
-        if (hpos >= 80 && hpos <= 176 && vpos >= 60 && vpos <= 180) begin
+        if (hpos >= 30 && hpos <= 30+paddleWidth && vpos >= p1coordinate && vpos <= p1coordinate+(paddleHeight/2)) begin
             r <= 4'b0000; // blue color
             g <= 4'b0000;
             b <= 4'b1111;
         end else begin
             // Background color (red)
-            r <= 4'b1111;
-            g <= 4'b0000;
-            b <= 4'b0000;
+            r <= 4'b1100;
+            g <= 4'b1111;
+            b <= 4'b1101;
         end
     end else begin
         // Turn off RGB outputs outside the visible area
@@ -65,6 +71,5 @@ always @(posedge clk_out or posedge reset) begin
         b <= 4'b0000;
     end
 end
-
 endmodule
 
