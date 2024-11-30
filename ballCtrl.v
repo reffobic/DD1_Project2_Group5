@@ -22,8 +22,8 @@
 
 module ballCtrl(input clk, reset, vCol, hCol, enable, output [9:0] xCoord, output [8:0] yCoord);
 
-    reg vDirection=0;
-    reg hDirection=0;
+    reg vDirection=1;
+    reg hDirection=1;
     
     counter_x_bit #(9,480) vcount(clk, reset, enable, vDirection, yCoord);
     counter_x_bit #(10,640) hcount(clk, reset, enable, hDirection, xCoord);
