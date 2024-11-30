@@ -19,6 +19,22 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+module paddleCount #(parameter x = 9, n = 480, s = 200)(input clk, reset, enable, updown, output reg [x-1:0] count);
+    always @(posedge clk or posedge reset) begin
+        if (reset)
+            count <= n/2;
+        else if (enable) begin
+            if (count == n-(100))
+                count <= count -1;
+            else if (count == 0)
+                count <= count + 1;
+            else if(updown)
+                count <= count + 1;
+            else
+                count <= count - 1;
+        end
+    end
+endmodule
 
 module paddleCtrl(input clk, reset, pushup, pushdown, vpos, output [8:0] coord);
 
@@ -32,6 +48,6 @@ clockDivider #(100000) clkdiv (.clk(clk), .reset(reset), .enable(1'b1), .clk_out
 wire countEn;
 assign countEn = pushup ^ pushdown;
 
-counter_x_bit #(9,480) vcount(clk_out, reset, countEn, upwire, coord);
+paddleCount #(9,480) vcount(clk_out, reset, countEn, upwire, coord);
 
 endmodule
