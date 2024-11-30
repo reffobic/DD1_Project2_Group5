@@ -7,17 +7,17 @@ set_property IOSTANDARD LVCMOS33 [get_ports reset]
 set_property PACKAGE_PIN P19 [get_ports hsync]
 set_property IOSTANDARD LVCMOS33 [get_ports hsync]
 
+set_property PACKAGE_PIN U17 [get_ports p1up]
+set_property IOSTANDARD LVCMOS33 [get_ports p1up]
+
+set_property PACKAGE_PIN W19 [get_ports p1down]
+set_property IOSTANDARD LVCMOS33 [get_ports p1down]
+
 set_property PACKAGE_PIN R19 [get_ports vsync]
 set_property IOSTANDARD LVCMOS33 [get_ports vsync]
 
 set_property PACKAGE_PIN G19 [get_ports r[0]]
 set_property IOSTANDARD LVCMOS33 [get_ports r[0]]
-
-set_property PACKAGE_PIN W19 [get_ports p1up]
-set_property IOSTANDARD LVCMOS33 [get_ports p1up]
-
-set_property PACKAGE_PIN U17 [get_ports p1down]
-set_property IOSTANDARD LVCMOS33 [get_ports p1down]
 
 set_property PACKAGE_PIN H19 [get_ports r[1]]
 set_property IOSTANDARD LVCMOS33 [get_ports r[1]]
@@ -51,3 +51,12 @@ set_property IOSTANDARD LVCMOS33 [get_ports b[2]]
 
 set_property PACKAGE_PIN J18 [get_ports b[3]]
 set_property IOSTANDARD LVCMOS33 [get_ports b[3]]
+
+set_property PACKAGE_PIN V17 [get_ports dark]
+set_property IOSTANDARD LVCMOS33 [get_ports dark]
+
+set_property PACKAGE_PIN T18 [get_ports p2down]
+set_property IOSTANDARD LVCMOS33 [get_ports p2down]
+
+set_property PACKAGE_PIN T17 [get_ports p2up]
+set_property IOSTANDARD LVCMOS33 [get_ports p2up]
