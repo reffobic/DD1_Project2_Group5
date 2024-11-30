@@ -23,7 +23,7 @@
 module counter_x_bit #(parameter x = 9, n = 480)(input clk, reset, enable, updown, output reg [x-1:0] count);
     always @(posedge clk or posedge reset) begin
         if (reset)
-            count <= n;
+            count <= n/2;
         else if (enable) begin
             if (count == n-1)
                 count <= 0;
