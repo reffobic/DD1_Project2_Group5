@@ -48,35 +48,61 @@ wire [8:0] p2coordinate;
 paddleCtrl paddle1 (.clk(clk_out), .reset(reset), .pushup(p1up), .pushdown(p1down), .vpos(480), .coord(p1coordinate));
 paddleCtrl paddle2 (.clk(clk_out), .reset(reset), .pushup(p2up), .pushdown(p2down), .vpos(480), .coord(p2coordinate));
 
-wire [9:0] xCoord;
-wire [8:0] yCoord;
+wire [9:0] ball_xCoord;
+wire [8:0] ball_yCoord;
 reg vCol, hCol;
 wire ball_clk;
+
 clockDivider #(100000) clkdivBall (.clk(clk_out), .reset(reset), .enable(1'b1), .clk_out(ball_clk));
-ballCtrl ball (.clk(ball_clk), .reset(reset), .vCol(vCol), .hCol(hCol), .enable(1'b1), .xCoord(xCoord), .yCoord(yCoord));
+ballCtrl ball (
+    .clk(ball_clk), 
+    .reset(reset), 
+    .vCol(vCol), 
+    .hCol(hCol), 
+    .enable(1'b1), 
+    .xCoord(ball_xCoord), 
+    .yCoord(ball_yCoord)
+);
 
 wire [11:0] ballColours;
 wire [11:0] paddleColours;
 wire [11:0] backgroundColours;
+reg [3:0] p1Score = 0;
+reg [3:0] p2Score = 0;
+
+reg restart = 0;
 
 assign ballColours = dark ? 12'b111111111111 : 12'b111110100100;
 assign paddleColours = dark ? 12'b111111111111 : 12'b111110100100;
-assign backgroundColours  = dark ? 12'b000000000000 : 12'b111111011101;
+assign backgroundColours  = dark ? 12'b000000000000 : 12'b011010101111;
 
-always @(posedge clk_out or posedge reset) begin
+always @(posedge clk_out) begin
     if (reset) begin
         vCol <= 1'b0;
         hCol <= 1'b0;
-    end else if ((xCoord >= 30 && xCoord <= 30+paddleWidth && yCoord >= p1coordinate && yCoord <= p1coordinate+(paddleHeight/2)) || (xCoord >= 600 && xCoord <= 600+paddleWidth && yCoord >= p2coordinate && yCoord <= p2coordinate+(paddleHeight/2)) ) begin
+    end else if ((ball_xCoord >= 30 && ball_xCoord <= 30+paddleWidth && ball_yCoord >= p1coordinate && ball_yCoord <= p1coordinate+(paddleHeight/2)) || (ball_xCoord+20 >= 600 && ball_xCoord+20 <= 600+paddleWidth && ball_yCoord >= p2coordinate && ball_yCoord <= p2coordinate+(paddleHeight/2)) ) begin
         hCol <= 1;
-    end else if (yCoord == 20 || yCoord == 460) begin
+    end else if (ball_yCoord <= 0 || ball_yCoord >= 460) begin
         vCol <= 1;
+    end else if (ball_xCoord < 25) begin
+        p2Score <= p2Score + 1;
+    end else if (ball_xCoord > 610) begin
+        p1Score <= p1Score + 1;
     end else begin
         hCol <= 0;
         vCol <= 0;
    end
 end
 
+//always @(posedge clk_out or posedge reset) begin
+//    if (reset) begin
+//        xCoord <= 320;
+//        yCoord <= 240;
+//    end else begin
+//        xCoord <= ball_xCoord;
+//        yCoord <= ball_yCoord;
+//    end
+//end
 
 // Generate the square and background color
 always @(posedge clk_out or posedge reset) begin
@@ -96,7 +122,7 @@ always @(posedge clk_out or posedge reset) begin
             r <= paddleColours[11:8]; 
             g <= paddleColours[7:4];
             b <= paddleColours[3:0];
-        end else if (hpos >= xCoord && hpos <= xCoord+20 && vpos >= yCoord && vpos <= yCoord+20) begin
+        end else if (hpos >= ball_xCoord && hpos <= ball_xCoord+20 && vpos >= ball_yCoord && vpos <= ball_yCoord+20) begin
             r <= ballColours[11:8]; 
             g <= ballColours[7:4];
             b <= ballColours[3:0];
