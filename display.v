@@ -19,7 +19,6 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-
 module display (input clk, reset, p1up, p1down, p2up, p2down, dark, output reg [3:0] r, g, b, output hsync, vsync);
 
 parameter paddleHeight = 200;
@@ -78,12 +77,12 @@ assign backgroundColours  = dark ? 12'b000000000000 : 12'b011010101111;
 
 always @(posedge clk_out) begin
     if (reset) begin
-        vCol <= 1'b0;
-        hCol <= 1'b0;
+        vCol <= 1'b1;
+        hCol <= 1'b1;
     end else if ((ball_xCoord >= 30 && ball_xCoord <= 30+paddleWidth && ball_yCoord >= p1coordinate && ball_yCoord <= p1coordinate+(paddleHeight/2)) || (ball_xCoord+20 >= 600 && ball_xCoord+20 <= 600+paddleWidth && ball_yCoord >= p2coordinate && ball_yCoord <= p2coordinate+(paddleHeight/2)) ) begin
-        hCol <= 1;
+        hCol <= 1'b1;
     end else if (ball_yCoord <= 0 || ball_yCoord >= 460) begin
-        vCol <= 1;
+        vCol <= 1'b1;
     end else if (ball_xCoord < 25) begin
         p2Score <= p2Score + 1;
     end else if (ball_xCoord > 610) begin
