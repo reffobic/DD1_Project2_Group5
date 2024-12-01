@@ -19,13 +19,28 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-module ballCount #(parameter x = 9, n = 480)(input clk, reset, enable, updown, output reg [x-1:0] count);
+module ballvCount #(parameter x = 9, n = 480)(input clk, reset, rst, enable, updown, output reg [x-1:0] count);
     always @(posedge clk or posedge reset) begin
-        if (reset)
+        if (reset) begin
             count <= n/2;
-        else if (enable) begin
-            if (count == n-1)
-                count <= 0;
+        end else if (enable) begin
+            if (rst)
+                count <= n/2;
+            else if(updown)
+                count <= count + 1;
+            else
+                count <= count - 1;
+        end
+    end
+endmodule
+
+module ballhCount #(parameter x = 9, n = 480)(input clk, reset, rst, enable, updown, output reg [x-1:0] count);
+    always @(posedge clk or posedge reset) begin
+        if (reset || rst) begin
+            count <= n/2;
+        end else if (enable) begin
+            if (count == 610 || count <= 20 || rst)
+                count <= n/2;
             else if(updown)
                 count <= count + 1;
             else
@@ -38,20 +53,23 @@ module ballCtrl(input clk, reset, vCol, hCol, enable, output reg [9:0] xCoord, o
 
     reg vDirection=1;
     reg hDirection=1;
+    reg rst = 0;
     
     wire [9:0] hCountOut;
     wire [8:0] vCountOut;
     
-    ballCount #(9,480) vcount(clk, reset, enable, vDirection, vCountOut);
-    ballCount #(10,640) hcount(clk, reset, enable, hDirection, hCountOut);
+    ballvCount #(9,480) vcount(clk, reset, rst, enable, vDirection, vCountOut);
+    ballhCount #(10,640) hcount(clk, reset, rst, enable, hDirection, hCountOut);
     
     always @(posedge clk) begin
-        if (reset | xCoord < 30 | xCoord > 610) begin
-            xCoord <= 320; // Reset to the center
-            yCoord <= 240; // Reset to the center
+        if (reset || xCoord < 30 || xCoord > 610) begin
+            xCoord <= 320;
+            yCoord <= 240;
+            rst <=1;
         end else if (enable) begin
             xCoord <= hCountOut;
             yCoord <= vCountOut;
+            rst <=0;
         end
     end
     
