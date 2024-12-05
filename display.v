@@ -19,7 +19,7 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-module display (input clk, reset, p1up, p1down, p2up, p2down, dark, output reg [3:0] r, g, b, output hsync, vsync);
+module display (input clk, reset, p1up, p1down, p2up, p2down, dark, enable, output reg [3:0] r, g, b, output hsync, vsync, output [0:6] segments, output [3:0] anode_active);
 
 parameter paddleHeight = 150;
 parameter paddleWidth = 5;
@@ -53,13 +53,13 @@ wire [8:0] ball_yCoord;
 reg vCol, hCol;
 wire ball_clk;
 
-clockDivider #(50000) clkdivBall (.clk(clk_out), .reset(reset), .enable(1'b1), .clk_out(ball_clk));
+clockDivider #(50000) clkdivBall (.clk(clk_out), .reset(reset), .enable(enable), .clk_out(ball_clk));
 ballCtrl ball (
     .clk(ball_clk), 
     .reset(reset), 
     .vCol(vCol), 
     .hCol(hCol), 
-    .enable(1'b1), 
+    .enable(enable), 
     .xCoord(ball_xCoord), 
     .yCoord(ball_yCoord)
 );
@@ -67,8 +67,8 @@ ballCtrl ball (
 wire [11:0] ballColours;
 wire [11:0] paddleColours;
 wire [11:0] backgroundColours;
-reg [3:0] p1Score = 0;
-reg [3:0] p2Score = 0;
+reg [3:0] p1Score;
+reg [3:0] p2Score;
 
 reg restart = 0;
 
@@ -80,6 +80,8 @@ always @(posedge clk_out) begin
     if (reset) begin
         vCol <= 1'b1;
         hCol <= 1'b1;
+        p1Score <= 4'b0000; // Reset P1 score
+        p2Score <= 4'b0000; // Reset P2 score
     end else if (
     (ball_xCoord >= 30 && ball_xCoord <= 30 + paddleWidth + ball_radius &&
      ((ball_yCoord + ball_radius >= p1coordinate) || (ball_yCoord - ball_radius >= p1coordinate)) &&
@@ -92,9 +94,9 @@ always @(posedge clk_out) begin
         hCol <= 1'b1;
     end else if (ball_yCoord <= ball_radius || ball_yCoord >= 480 - ball_radius) begin
         vCol <= 1'b1;
-    end else if (ball_xCoord < 2) begin
+    end else if (ball_xCoord < 20) begin
         p2Score <= p2Score + 1;
-    end else if (ball_xCoord > 638) begin
+    end else if (ball_xCoord > 620) begin
         p1Score <= p1Score + 1;
     end else begin
         hCol <= 0;
@@ -102,17 +104,83 @@ always @(posedge clk_out) begin
    end
 end
 
-// Generate the square and background color
+// Seven-Segment Display Control
+reg [1:0] en; // Enables each digit sequentially
+reg [3:0] current_num; // The number to display on the active digit
+
+always @(posedge clk_out) begin
+    en <= en + 1;
+end
+
+// Assign numbers for the seven-segment display
+always @* begin
+    case (en)
+        2'b00: current_num = p1Score; // P1 Score on left digit
+        2'b01: current_num = 4'b0000; // Blank for unused digit
+        2'b10: current_num = p2Score; // P2 Score on right digit
+        2'b11: current_num = 4'b0000; // Blank for unused digit
+        default: current_num = 4'b0000;
+    endcase
+end
+
+SevenSegDecWithEn sevenSeg (
+    .en(en),
+    .num(current_num),
+    .segments(segments),
+    .anode_active(anode_active)
+);
+
+// ASCII ROM for text rendering
+wire [10:0] rom_addr;
+wire [7:0] ascii_word;
+wire ascii_bit;
+
+ascii_rom ascii_unit (.clk(clk_out), .addr(rom_addr), .data(ascii_word));
+
+// Score display region
+wire score_on;
+assign score_on = (vpos >= 20 && vpos < 52 && hpos >= 200 && hpos < 360);
+
+// Row and bit addressing for ASCII ROM
+wire [3:0] rowAddr;
+wire [2:0] bit_addr;
+assign rowAddr = (vpos - 20) >> 1;
+assign bit_addr = hpos[3:1];
+
+// ASCII character selection for "P1: XX P2: XX"
+reg [6:0] charAddr;
+always @* begin
+    case ((hpos - 200) >> 4)
+        4'h0: charAddr = 7'h50;         // P
+        4'h1: charAddr = 7'h31;         // 1
+        4'h2: charAddr = 7'h3A;         // :
+        4'h3: charAddr = {3'b011, p1Score[3:0]}; // Player 1 score (tens)
+        4'h4: charAddr = {3'b011, p2Score[3:0]}; // Player 1 score (units)
+        4'h5: charAddr = 7'h20;         // Space
+        4'h6: charAddr = 7'h50;         // P
+        4'h7: charAddr = 7'h32;         // 2
+        4'h8: charAddr = 7'h3A;         // :
+        4'h9: charAddr = {3'b011, p2Score[3:0]}; // Player 2 score (tens)
+        4'hA: charAddr = {3'b011, p2Score[3:0]}; // Player 2 score (units)
+        default: charAddr = 7'h20;      // Space
+    endcase
+end
+
+assign rom_addr = {charAddr, rowAddr};
+assign ascii_bit = ascii_word[~bit_addr];
+
+// Render score digits
 always @(posedge clk_out or posedge reset) begin
     if (reset) begin
-        // Reset RGB outputs to black
         r <= 4'b0000;
         g <= 4'b0000;
         b <= 4'b0000;
-       
     end else if (display_on) begin
-        // Draw a square in the specified region
-        if (hpos >= 30 && hpos <= 30+paddleWidth && vpos >= p1coordinate && vpos <= p1coordinate+(paddleHeight/2)) begin
+        if (score_on && ascii_bit) begin
+            r <= 4'b1111; // Red for score text
+            g <= 4'b0000;
+            b <= 4'b0000;
+        end else if (hpos >= 30 && hpos <= 30+paddleWidth && vpos >= p1coordinate && vpos <= p1coordinate+(paddleHeight/2)) begin
             r <= paddleColours[11:8]; 
             g <= paddleColours[7:4];
             b <= paddleColours[3:0];
@@ -130,11 +198,11 @@ always @(posedge clk_out or posedge reset) begin
             b <= backgroundColours[3:0];
         end
     end else begin
-        // Turn off RGB outputs outside the visible area
         r <= 4'b0000;
         g <= 4'b0000;
         b <= 4'b0000;
     end
 end
+
 
 endmodule
