@@ -24,7 +24,7 @@ module paddleCount #(parameter x = 9, n = 480, s = 200)(input clk, reset, enable
         if (reset)
             count <= n/2;
         else if (enable) begin
-            if (count == n-(100))
+            if (count == n-(75))
                 count <= count -1;
             else if (count == 0)
                 count <= count + 1;
@@ -43,7 +43,7 @@ debouncer deb1(.clk(clk), .rst(reset), .in(pushup), .out(upwire));
 debouncer deb2(.clk(clk), .rst(reset), .in(pushdown), .out(downwire));
 
 wire clk_out;
-clockDivider #(100000) clkdiv (.clk(clk), .reset(reset), .enable(1'b1), .clk_out(clk_out));
+clockDivider #(50000) clkdiv (.clk(clk), .reset(reset), .enable(1'b1), .clk_out(clk_out));
 
 wire countEn;
 assign countEn = pushup ^ pushdown;
