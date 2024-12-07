@@ -19,11 +19,11 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-module display (input clk, reset, p1up, p1down, p2up, p2down, dark, output reg [3:0] r, g, b, output hsync, vsync);
+module display (input clk, reset, p1up, p1down, p2up, p2down, dark, enable, output reg [3:0] r, g, b, output hsync, vsync, output [6:0] segments, output [3:0] anode_active, output p1s, p2s);
 
 parameter paddleHeight = 150;
 parameter paddleWidth = 5;
-parameter ball_radius = 8;
+parameter ball_radius = 5;
 
 wire clk_out;
 
@@ -52,29 +52,18 @@ wire [9:0] ball_xCoord;
 wire [8:0] ball_yCoord;
 reg vCol, hCol;
 wire ball_clk;
-
-clockDivider #(50000) clkdivBall (.clk(clk_out), .reset(reset), .enable(1'b1), .clk_out(ball_clk));
-ballCtrl ball (
-    .clk(ball_clk), 
-    .reset(reset), 
-    .vCol(vCol), 
-    .hCol(hCol), 
-    .enable(1'b1), 
-    .xCoord(ball_xCoord), 
-    .yCoord(ball_yCoord)
-);
+clockDivider #(50000) clkdivBall (.clk(clk_out), .reset(reset), .enable(enable), .clk_out(ball_clk));
+ballCtrl ball (.clk(ball_clk), .reset(reset),.vCol(vCol),.hCol(hCol), .enable(enable),  .xCoord(ball_xCoord), .yCoord(ball_yCoord),.score1(p1s), .score2(p2s));
 
 wire [11:0] ballColours;
 wire [11:0] paddleColours;
 wire [11:0] backgroundColours;
-reg [3:0] p1Score = 0;
-reg [3:0] p2Score = 0;
+reg [3:0] p1Score = 4'b0000;
+reg [3:0] p2Score = 4'b0000;
 
-reg restart = 0;
-
-assign ballColours = dark ? 12'b111100000000 : 12'b111110100100;
-assign paddleColours = dark ? 12'b111111111111 : 12'b111110100100;
-assign backgroundColours  = dark ? 12'b000000000000 : 12'b011010101111;
+assign ballColours = dark ? 12'b111100000000 : 12'b111100000000;
+assign paddleColours = dark ? 12'b111111111111 : 12'b000000000000;
+assign backgroundColours  = dark ? 12'b000000000000 : 12'b111111111111;
 
 always @(posedge clk_out) begin
     if (reset) begin
@@ -92,26 +81,59 @@ always @(posedge clk_out) begin
         hCol <= 1'b1;
     end else if (ball_yCoord <= ball_radius || ball_yCoord >= 480 - ball_radius) begin
         vCol <= 1'b1;
-    end else if (ball_xCoord < 2) begin
-        p2Score <= p2Score + 1;
-    end else if (ball_xCoord > 638) begin
-        p1Score <= p1Score + 1;
     end else begin
         hCol <= 0;
         vCol <= 0;
    end
 end
 
-// Generate the square and background color
+
+always @(posedge p1s or posedge reset) begin
+    if (reset) begin
+        p1Score <= 4'b0000;
+    end else p1Score <= p1Score + 1;
+end
+
+always @(posedge p2s or posedge reset) begin
+    if (reset) begin
+        p2Score <= 4'b0000;
+    end else p2Score <= p2Score + 1;
+end
+
+// Seven-Segment Display Control
+reg [1:0] en; // Enables each digit sequentially
+reg [3:0] current_num; // The number to display on the active digit
+
+wire secClk;
+clockDivider #(62500) clkdivSec (.clk(clk_out), .reset(reset), .enable(enable), .clk_out(secClk));
+
+always @(posedge secClk) begin
+    en <= en + 1;
+end
+
+// Assign numbers for the seven-segment display
+always @(posedge clk_out) begin
+    case (en)
+        2'b00: current_num = p1Score; // P1 Score on left digit
+        2'b01: current_num = 4'b0001; // Blank for unused digit
+        2'b10: current_num = 4'b0001; // P2 Score on right digit
+        2'b11: current_num = p2Score; // Blank for unused digit
+        default: current_num = 4'b0000;
+    endcase
+end
+
+SevenSegDecWithEn sevenSeg (.en(en),.num(current_num), .segments(segments), .anode_active(anode_active));
+
+wire ascii_bit;
+pong_text text(.clk(clk_out), .dig0(p1Score) , .dig1(p2Score), .x(hpos) , .y(vpos), .ascii_bit(ascii_bit));
+
+// Render score digits
 always @(posedge clk_out or posedge reset) begin
     if (reset) begin
-        // Reset RGB outputs to black
         r <= 4'b0000;
         g <= 4'b0000;
         b <= 4'b0000;
-       
     end else if (display_on) begin
-        // Draw a square in the specified region
         if (hpos >= 30 && hpos <= 30+paddleWidth && vpos >= p1coordinate && vpos <= p1coordinate+(paddleHeight/2)) begin
             r <= paddleColours[11:8]; 
             g <= paddleColours[7:4];
@@ -124,13 +146,22 @@ always @(posedge clk_out or posedge reset) begin
             r <= ballColours[11:8]; 
             g <= ballColours[7:4];
             b <= ballColours[3:0];
+        end else if ((vpos >= 32) && (vpos < 64) && (hpos[9:4] < 16)) begin
+            if (ascii_bit) begin
+                r <= ballColours[11:8]; 
+                g <= ballColours[7:4];
+                b <= ballColours[3:0];
+            end else begin
+                r <= backgroundColours[11:8];
+                g <= backgroundColours[7:4];
+                b <= backgroundColours[3:0];
+            end
         end else begin
             r <= backgroundColours[11:8];
             g <= backgroundColours[7:4];
             b <= backgroundColours[3:0];
         end
     end else begin
-        // Turn off RGB outputs outside the visible area
         r <= 4'b0000;
         g <= 4'b0000;
         b <= 4'b0000;
