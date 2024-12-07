@@ -34,12 +34,12 @@ module ballvCount #(parameter x = 9, n = 480)(input clk, reset, rst, enable, upd
     end
 endmodule
 
-module ballhCount #(parameter x = 9, n = 480)(input clk, reset, rst, enable, updown, output reg [x-1:0] count);
+module ballhCount #(parameter x = 10, n = 640)(input clk, reset, rst, enable, updown, output reg [x-1:0] count);
     always @(posedge clk or posedge reset) begin
         if (reset || rst) begin
             count <= n/2;
         end else if (enable) begin
-            if (count == 610 || count <= 20 || rst)
+            if (count == 639 || count == 1 || rst)
                 count <= n/2;
             else if(updown)
                 count <= count + 1;
@@ -49,7 +49,7 @@ module ballhCount #(parameter x = 9, n = 480)(input clk, reset, rst, enable, upd
     end
 endmodule
 
-module ballCtrl(input clk, reset, vCol, hCol, enable, output reg [9:0] xCoord, output reg [8:0] yCoord);
+module ballCtrl(input clk, reset, vCol, hCol, enable, output reg [9:0] xCoord, output reg [8:0] yCoord, output reg score1, score2);
 
     reg vDirection=1;
     reg hDirection=1;
@@ -61,8 +61,22 @@ module ballCtrl(input clk, reset, vCol, hCol, enable, output reg [9:0] xCoord, o
     ballvCount #(9,480) vcount(clk, reset, rst, enable, vDirection, vCountOut);
     ballhCount #(10,640) hcount(clk, reset, rst, enable, hDirection, hCountOut);
     
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            score1 <= 1'b0;
+            score2 <= 1'b0;
+        end else if (hCountOut <= 20) begin
+            score2 <= 1'b1; // P2 scores
+        end else if (hCountOut >= 620) begin
+            score1<= 1'b1; // P1 scores
+        end else begin
+            score1 <= 1'b0;
+            score2 <= 1'b0;
+        end
+    end
+   
     always @(posedge clk) begin
-        if (reset || xCoord < 30 || xCoord > 610) begin
+        if (reset || xCoord < 1 || xCoord > 639) begin
             xCoord <= 320;
             yCoord <= 240;
             rst <=1;
