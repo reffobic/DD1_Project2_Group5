@@ -23,7 +23,7 @@ module display (input clk, reset, p1up, p1down, p2up, p2down, dark, enable, outp
 
 parameter paddleHeight = 150;
 parameter paddleWidth = 5;
-parameter ball_radius = 8;
+parameter ball_radius = 5;
 
 wire clk_out;
 
@@ -52,25 +52,16 @@ wire [9:0] ball_xCoord;
 wire [8:0] ball_yCoord;
 reg vCol, hCol;
 wire ball_clk;
+wire [1:0] score;
 
 clockDivider #(50000) clkdivBall (.clk(clk_out), .reset(reset), .enable(enable), .clk_out(ball_clk));
-ballCtrl ball (
-    .clk(ball_clk), 
-    .reset(reset), 
-    .vCol(vCol), 
-    .hCol(hCol), 
-    .enable(enable), 
-    .xCoord(ball_xCoord), 
-    .yCoord(ball_yCoord)
-);
+ballCtrl ball (.clk(ball_clk), .reset(reset),.vCol(vCol),.hCol(hCol), .enable(enable),  .xCoord(ball_xCoord), .yCoord(ball_yCoord),.score(score));
 
 wire [11:0] ballColours;
 wire [11:0] paddleColours;
 wire [11:0] backgroundColours;
-reg [3:0] p1Score;
-reg [3:0] p2Score;
-
-reg restart = 0;
+reg [3:0] p1Score = 4'b0000;
+reg [3:0] p2Score = 4'b0000;
 
 assign ballColours = dark ? 12'b111100000000 : 12'b111110100100;
 assign paddleColours = dark ? 12'b111111111111 : 12'b111110100100;
@@ -94,14 +85,21 @@ always @(posedge clk_out) begin
         hCol <= 1'b1;
     end else if (ball_yCoord <= ball_radius || ball_yCoord >= 480 - ball_radius) begin
         vCol <= 1'b1;
-    end else if (ball_xCoord < 20) begin
-        p2Score <= p2Score + 1;
-    end else if (ball_xCoord > 620) begin
-        p1Score <= p1Score + 1;
     end else begin
         hCol <= 0;
         vCol <= 0;
    end
+end
+
+always @(posedge clk_out or posedge reset) begin
+    if (reset) begin
+        p1Score <= 4'b0000;
+        p2Score <= 4'b0000;
+    end else if (score == 2'b01) begin
+        p1Score <= p1Score + 1;
+    end else if (score == 2'b10) begin
+        p2Score <= p2Score + 1;
+    end
 end
 
 // Seven-Segment Display Control
@@ -130,44 +128,9 @@ SevenSegDecWithEn sevenSeg (
     .anode_active(anode_active)
 );
 
-// ASCII ROM for text rendering
-wire [10:0] rom_addr;
-wire [7:0] ascii_word;
-wire ascii_bit;
-
-ascii_rom ascii_unit (.clk(clk_out), .addr(rom_addr), .data(ascii_word));
-
-// Score display region
-wire score_on;
-assign score_on = (vpos >= 20 && vpos < 52 && hpos >= 200 && hpos < 360);
-
-// Row and bit addressing for ASCII ROM
-wire [3:0] rowAddr;
-wire [2:0] bit_addr;
-assign rowAddr = (vpos - 20) >> 1;
-assign bit_addr = hpos[3:1];
-
-// ASCII character selection for "P1: XX P2: XX"
-reg [6:0] charAddr;
-always @* begin
-    case ((hpos - 200) >> 4)
-        4'h0: charAddr = 7'h50;         // P
-        4'h1: charAddr = 7'h31;         // 1
-        4'h2: charAddr = 7'h3A;         // :
-        4'h3: charAddr = {3'b011, p1Score[3:0]}; // Player 1 score (tens)
-        4'h4: charAddr = {3'b011, p2Score[3:0]}; // Player 1 score (units)
-        4'h5: charAddr = 7'h20;         // Space
-        4'h6: charAddr = 7'h50;         // P
-        4'h7: charAddr = 7'h32;         // 2
-        4'h8: charAddr = 7'h3A;         // :
-        4'h9: charAddr = {3'b011, p2Score[3:0]}; // Player 2 score (tens)
-        4'hA: charAddr = {3'b011, p2Score[3:0]}; // Player 2 score (units)
-        default: charAddr = 7'h20;      // Space
-    endcase
-end
-
-assign rom_addr = {charAddr, rowAddr};
-assign ascii_bit = ascii_word[~bit_addr];
+reg [10:0] addr;
+wire [7:0] data;
+ascii_rom rom (.clk(clk_out), .addr(addr), .data(data));
 
 // Render score digits
 always @(posedge clk_out or posedge reset) begin
@@ -176,11 +139,7 @@ always @(posedge clk_out or posedge reset) begin
         g <= 4'b0000;
         b <= 4'b0000;
     end else if (display_on) begin
-        if (score_on && ascii_bit) begin
-            r <= 4'b1111; // Red for score text
-            g <= 4'b0000;
-            b <= 4'b0000;
-        end else if (hpos >= 30 && hpos <= 30+paddleWidth && vpos >= p1coordinate && vpos <= p1coordinate+(paddleHeight/2)) begin
+        if (hpos >= 30 && hpos <= 30+paddleWidth && vpos >= p1coordinate && vpos <= p1coordinate+(paddleHeight/2)) begin
             r <= paddleColours[11:8]; 
             g <= paddleColours[7:4];
             b <= paddleColours[3:0];
@@ -192,6 +151,34 @@ always @(posedge clk_out or posedge reset) begin
             r <= ballColours[11:8]; 
             g <= ballColours[7:4];
             b <= ballColours[3:0];
+        end else if (hpos >= 30 && hpos < 46 && vpos >= 21 && vpos < 35) begin
+            addr <= {4'b0011, p1Score, vpos[3:0] - 21}; // Compute ROM address for Player 1
+            if (data[7 - (hpos - 30)]) begin
+                // Highlight pixel for Player 1 score
+                r <= 4'b1111; // White color for text
+                g <= 4'b1111;
+                b <= 4'b1111;
+            end else begin
+                // Background color for non-score area
+                r <= 10;
+                g <= 10;
+                b <= 10;
+            end
+        end 
+        // Player 2 Score Display Region
+        else if (hpos >= 601 && hpos < 617 && vpos >= 21 && vpos < 35) begin
+            addr <= {4'b0011, p2Score, vpos[3:0] - 21}; // Compute ROM address for Player 2
+            if (data[7 - (hpos - 601)]) begin
+                // Highlight pixel for Player 2 score
+                r <= 4'b1111; // White color for text
+                g <= 4'b1111;
+                b <= 4'b1111;
+            end else begin
+                // Background color for non-score area
+                r <= backgroundColours[11:8];
+                g <= backgroundColours[7:4];
+                b <= backgroundColours[3:0];
+            end
         end else begin
             r <= backgroundColours[11:8];
             g <= backgroundColours[7:4];
