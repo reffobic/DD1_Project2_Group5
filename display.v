@@ -52,9 +52,27 @@ wire [9:0] ball_xCoord;
 wire [8:0] ball_yCoord;
 reg vCol, hCol;
 wire ball_clk;
-clockDivider #(50000) clkdivBall (.clk(clk_out), .reset(reset), .enable(enable), .clk_out(ball_clk));
-ballCtrl ball (.clk(ball_clk), .reset(reset),.vCol(vCol),.hCol(hCol), .enable(enable),  .xCoord(ball_xCoord), .yCoord(ball_yCoord),.score1(p1s), .score2(p2s));
+reg paused;
+reg paused2;
 
+// Modify ball and paddle control logic to respect paused state
+clockDivider #(50000) clkdivBall (
+    .clk(clk_out),
+    .reset(reset || paused || paused2), // Stop clock when paused
+    .enable(enable && (~paused|| ~paused2)), // Disable movement when paused
+    .clk_out(ball_clk)
+);
+ballCtrl ball (
+    .clk(ball_clk),
+    .reset(reset || paused || paused2), // Reset ball logic when paused
+    .vCol(vCol),
+    .hCol(hCol),
+    .enable(enable && (~paused || ~paused2)),
+    .xCoord(ball_xCoord),
+    .yCoord(ball_yCoord),
+    .score1(p1s),
+    .score2(p2s)
+);
 wire [11:0] ballColours;
 wire [11:0] paddleColours;
 wire [11:0] backgroundColours;
@@ -87,17 +105,26 @@ always @(posedge clk_out) begin
    end
 end
 
-
 always @(posedge p1s or posedge reset) begin
     if (reset) begin
         p1Score <= 4'b0000;
-    end else p1Score <= p1Score + 1;
+        paused <= 1'b0; // Resume the game on anode_active 
+    end else if(p1Score == 4'b1001) begin
+        p1Score <= p1Score; // Keep the score at 9
+        paused <= 1'b1;     // Pause the game
+    end else if (~paused) p1Score <= p1Score + 1;
 end
 
 always @(posedge p2s or posedge reset) begin
     if (reset) begin
         p2Score <= 4'b0000;
-    end else p2Score <= p2Score + 1;
+        paused2 <= 1'b0; // Resume the game on reset
+    end else if (p2Score == 4'b1001) begin
+        p2Score <= p2Score; // Keep the score at 9
+        paused2 <= 1'b1;     // Pause the game
+    end else if (~paused2) begin
+        p2Score <= p2Score + 1;
+    end
 end
 
 // Seven-Segment Display Control
@@ -125,7 +152,7 @@ end
 SevenSegDecWithEn sevenSeg (.en(en),.num(current_num), .segments(segments), .anode_active(anode_active));
 
 wire ascii_bit;
-pong_text text(.clk(clk_out), .dig0(p1Score) , .dig1(p2Score), .x(hpos) , .y(vpos), .ascii_bit(ascii_bit));
+pong_text text(.clk(clk_out), .dig0(p2Score) , .dig1(p1Score), .x(hpos) , .y(vpos), .ascii_bit(ascii_bit));
 
 // Render score digits
 always @(posedge clk_out or posedge reset) begin
