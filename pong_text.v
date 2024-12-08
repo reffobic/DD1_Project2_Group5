@@ -67,7 +67,8 @@ module pong_text(
             end
         end
 
-        assign rom_addr = {char_addr, row_addr};
-        assign ascii_bit = ascii_word[~bit_addr];
+        assign rom_addr = {char_addr, row_addr[3:0]}; // Limit row_addr range
+    assign ascii_bit = ascii_word[~(bit_addr & 3'b111)]; // Limit bit_addr range
+
         
 endmodule
