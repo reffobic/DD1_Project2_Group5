@@ -54,6 +54,8 @@ reg vCol, hCol;
 wire ball_clk;
 reg paused;
 reg paused2;
+reg gameOver;
+reg gameOver2;
 
 // Modify ball and paddle control logic to respect paused state
 clockDivider #(50000) clkdivBall (
@@ -109,9 +111,11 @@ always @(posedge p1s or posedge reset) begin
     if (reset) begin
         p1Score <= 4'b0000;
         paused <= 1'b0; // Resume the game on anode_active 
+        gameOver <= 0;
     end else if(p1Score == 4'b1001) begin
         p1Score <= p1Score; // Keep the score at 9
         paused <= 1'b1;     // Pause the game
+        gameOver <= 1;
     end else if (~paused) p1Score <= p1Score + 1;
 end
 
@@ -119,9 +123,11 @@ always @(posedge p2s or posedge reset) begin
     if (reset) begin
         p2Score <= 4'b0000;
         paused2 <= 1'b0; // Resume the game on reset
+        gameOver2 <= 0;
     end else if (p2Score == 4'b1001) begin
         p2Score <= p2Score; // Keep the score at 9
-        paused2 <= 1'b1;     // Pause the game
+        paused2 <= 1'b1; 
+        gameOver2 <= 1;
     end else if (~paused2) begin
         p2Score <= p2Score + 1;
     end
@@ -154,6 +160,9 @@ SevenSegDecWithEn sevenSeg (.en(en),.num(current_num), .segments(segments), .ano
 wire ascii_bit;
 pong_text text(.clk(clk_out), .dig0(p2Score) , .dig1(p1Score), .x(hpos) , .y(vpos), .ascii_bit(ascii_bit));
 
+wire ascii_2;
+gameOverText GO ( .clk(clk_out) , .x(hpos), .y(vpos), .ascii_bit(ascii_2));
+
 // Render score digits
 always @(posedge clk_out or posedge reset) begin
     if (reset) begin
@@ -183,6 +192,16 @@ always @(posedge clk_out or posedge reset) begin
                 g <= backgroundColours[7:4];
                 b <= backgroundColours[3:0];
             end
+        end else if ((gameOver || gameOver2) && (vpos >= 232) && (vpos < 264) && (hpos[9:4] < 64)) begin
+            if (ascii_2) begin
+                r <= ballColours[11:8]; 
+                g <= ballColours[7:4];
+                b <= ballColours[3:0];
+            end else begin
+                r <= backgroundColours[11:8];
+                g <= backgroundColours[7:4];
+                b <= backgroundColours[3:0];
+            end                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
         end else begin
             r <= backgroundColours[11:8];
             g <= backgroundColours[7:4];
