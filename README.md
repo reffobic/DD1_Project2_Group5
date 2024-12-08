@@ -35,7 +35,6 @@ This project implements a classic Pong game using Verilog HDL on an FPGA platfor
 ### Hardware
 - FPGA board (e.g., Basys 3)
 - VGA display compatible with 640x480 resolution
-- Input devices for paddle control (e.g., buttons or switches)
 
 ### Software
 - Xilinx Vivado Design Suite
